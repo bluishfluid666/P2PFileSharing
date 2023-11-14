@@ -22,5 +22,6 @@
 | --- | --- |
 | `discover hostname` | discover the list of local files of host named hostname |
 | `ping hostname` | live check the host named hostname |
+
 ![Figure 1: File Sharing Activities](./FileSharingActivities.png "File Sharing Activities")
 - It is important to note that the connecting infrastructure is not implied by the representation in Figure 1. All devices are interconnected through the Internet. Separating them is the logical point of view regarding the protocol’s activities.
