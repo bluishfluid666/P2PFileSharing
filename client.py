@@ -1,11 +1,25 @@
 import threading
 import socket
 
-nickname = input('Choose your nickname: ')
+# This is used to get the IP of the host
+def get_local_ip():
+    try:
+        # Create a socket object and connect to an external server
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))  # Google's public DNS server and port 80
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except socket.error:
+        return "Unable to determine local IP"
+
+ip = input('Enter your server IP: ')
+port = 55556
+nickname = get_local_ip() + ' ' + str(port)
 
 # Connecting to the Server
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(('0.0.0.0', 55556))
+client.connect((ip, port))
 
 # Listening to Server and Sending Nickname
 def receive():
@@ -28,6 +42,9 @@ def receive():
 def write():
     while True:
         message = f'{nickname}: {input("")}'
+        
+        # TODO: process client's CLI: publish & fetch
+        
         client.send(message.encode('utf-8'))
 
 
