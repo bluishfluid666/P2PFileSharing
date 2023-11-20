@@ -1,5 +1,6 @@
 import threading
 import socket
+import os
 
 # This is used to get the IP of the host
 def get_local_ip():
@@ -14,7 +15,7 @@ def get_local_ip():
         return "Unable to determine local IP"
 
 ip = input('Enter your server IP: ')
-port = 55556
+port = 55555
 nickname = get_local_ip() + ' ' + str(port)
 
 # Connecting to the Server
@@ -38,14 +39,43 @@ def receive():
             client.close()
             break
 
+def publish_file(local_filename, remote_filename):
+    with open(local_filename, 'rb') as file:
+        file_data = file.read()
+
+    message = f'PUBLISH {remote_filename}\n{file_data}'
+    client.sendall(message.encode('utf-8'))
+
+def fetch_file(remote_filename):
+    message = f'FETCH {remote_filename}'
+    client.sendall(message.encode('utf-8'))
+
+    # Receive file data from server
+    file_data = b''
+    while True:
+        chunk = client.recv(1024)
+        if not chunk:
+            break
+        file_data += chunk
+
+    # Write file data to local file
+    with open(remote_filename, 'wb') as file:
+        file.write(file_data)
+
 # Sending Message to Server
 def write():
     while True:
         message = f'{nickname}: {input("")}'
-        
-        # TODO: process client's CLI: publish & fetch
-        
-        client.send(message.encode('utf-8'))
+        command = message.split(":")[1]
+        if command.startswith(' publish'):
+            local_filename= command.split(' ')[2]
+            remote_filename= command.split(' ')[3]
+            publish_file(local_filename, remote_filename)
+        elif command.startswith(' fetch'):
+            remote_filename = command.split(' ', 2)[1]
+            fetch_file(remote_filename)
+        else:
+            print(f'Invalid command: {command}')
 
 
 receiver_thread = threading.Thread(target=receive)
@@ -53,4 +83,3 @@ receiver_thread.start()
 
 sender_thread = threading.Thread(target=write)
 sender_thread.start()
-

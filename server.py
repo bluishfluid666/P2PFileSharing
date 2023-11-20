@@ -17,7 +17,7 @@ def get_local_ip():
 BUFFER_SIZE = 1024
 host = get_local_ip()
 print(f'Host is on: {host}')
-port = 55556
+port = 55555
 
 # Initializing server
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
