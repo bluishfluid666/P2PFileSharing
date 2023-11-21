@@ -16,7 +16,8 @@ def get_local_ip():
 
 ip = input('Enter your server IP: ')
 port = 55555
-nickname = get_local_ip() + ' ' + str(port)
+name = input('Enter your name: ')
+nickname = get_local_ip() + ' ' + str(port) + ": " + name
 
 # Connecting to the Server
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -66,7 +67,8 @@ def fetch_file(remote_filename):
 def write():
     while True:
         message = f'{nickname}: {input("")}'
-        command = message.split(":")[1]
+        print(message)
+        command = message.split(":")[-1]
         if command.startswith(' publish'):
             local_filename= command.split(' ')[2]
             remote_filename= command.split(' ')[3]
