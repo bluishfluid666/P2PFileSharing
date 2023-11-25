@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from client import Client, CLI as ClientCLI
 
 port = 55556
@@ -47,11 +47,17 @@ class IPEntryView(tk.Frame):
 
     def submit_ip(self) -> None:
         ip_address: str = self.ip_entry.get()
+
+        if not ip_address:
+            messagebox.showerror("Error", "IP Address cannot be empty")
+            return
+
         print("IP Address entered:", ip_address)
 
         try:
             self.main.connect(ip_address, port)
-        except ConnectionRefusedError:
+        except Exception as e:
+            messagebox.showerror("Error", e)
             return
 
         self.destroy()  # Destroy current view
@@ -65,9 +71,21 @@ class FileTransferView(tk.Frame):
         self.create_widgets()
 
     def create_widgets(self) -> None:
+        # Column 1: File from local repository
+        self.local_file_listing_frame = tk.Frame(self)
+        self.local_file_listing_frame.grid(row=0, column=0, padx=10, pady=10)
+
+        self.local_file_list_label = tk.Label(
+            self.local_file_listing_frame, text="Local Files:"
+        )
+        self.local_file_list_label.pack()
+
+        self.local_file_listbox = tk.Listbox(self.local_file_listing_frame)
+        self.local_file_listbox.pack()
+
         # Column 1: File selection
         self.file_selection_frame = tk.Frame(self)
-        self.file_selection_frame.grid(row=0, column=0, padx=10, pady=10)
+        self.file_selection_frame.grid(row=1, column=0, padx=10, pady=1)
 
         self.select_file_button = tk.Button(
             self.file_selection_frame, text="Select File", command=self.select_file
