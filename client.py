@@ -23,16 +23,25 @@ class Client:
     def close(self) -> None:
         self.socket.close()
 
-    # `publish <lname> <fname>` a local file a local file (which is stored in the client’s
-    # file system as lname) is added to the client’s repository as a file named fname,
-    # which is then conveyed to the server.
-    def publish(self, lname: str, fname: str) -> None:
-        self.send(f"publish {lname} {fname}")
+    def publish_file(local_filename, remote_filename):
+        with open(local_filename, "rb") as file:
+            file_data = file.read()
 
-    # `fetch <fname>` fetch some copy of the target file and add it to the local repository
-    def fetch(self, fname: str) -> None:
-        self.send(f"fetch {fname}")
-        # TODO
+        message = f"PUBLISH {remote_filename}\n{file_data}"
+        self.socket.sendall(message.encode("utf-8"))
+
+    def fetch_file(remote_filename):
+        message = f"FETCH {remote_filename}"
+        self.socket.sendall(message.encode("utf-8"))
+
+        """
+            For example, if the index server returns a list of peer file servers,
+            the peer client chooses the one with IP address 192.168.1.15
+        """
+        selected_ip_address = "192.168.1.15"
+        peer_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        peer_client.connect((selected_ip_address, 65000))
+        # TODO: implement fetch
 
 
 class CLI:
@@ -72,8 +81,18 @@ class CLI:
 
     def write(self) -> None:
         while self.running:
-            message: str = f'{self.nickname}: {input("")}'
-            self.client.send(message)
+            message = f'{nickname}: {input("")}'
+            print(message)
+            command = message.split(":")[-1]
+            if command.startswith(" publish"):
+                local_filename = command.split(" ")[2]
+                remote_filename = command.split(" ")[3]
+                publish_file(local_filename, remote_filename)
+            elif command.startswith(" fetch"):
+                remote_filename = command.split(" ", 2)[1]
+                fetch_file(remote_filename)
+            else:
+                print(f"Invalid command: {command}")
 
     def start(self) -> None:
         print(
