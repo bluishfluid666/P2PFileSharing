@@ -403,10 +403,6 @@ class MainViewSettingsTabConnectionDetails(ttk.Frame):
             messagebox.showerror("Error", e)
             return
 
-        self.destroy()
-        main_view = MainView(self.parent, self.ctx)
-        main_view.pack()
-
 
 if __name__ == "__main__":
     app = MainApplication()
