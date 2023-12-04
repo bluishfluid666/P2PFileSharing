@@ -1,108 +1,99 @@
+from config_server import *
 import threading
-import socket
-from pynput import keyboard
 
-# This is used to get the IP of the host
-def get_local_ip():
-    try:
-        # Create a socket object and connect to an external server
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('8.8.8.8', 80))  # Google's public DNS server and port 80
-        local_ip = s.getsockname()[0]
-        s.close()
-        return local_ip
-    except socket.error:
-        return "Unable to determine local IP"
+client_addr = []
+active_addr = []
+client_lname = []
+client_file = {}
 
-BUFFER_SIZE = 1024
-host = get_local_ip()
-print(f'Host is on: {host}')
-port = 55555
+def server_command():
+    while True:
+        cmd = input()
+        if cmd == "Discover":
+            print(client_file)
+        elif cmd == "Disconnect":
+            break;
+        else :
+            print("Wrong command")
+    return True
 
-# Initializing server
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server.bind((host, port))
-server.settimeout(1)
-server.listen()
+def handle_client(conn, addr):
+    print(f'[NEW CONNECTION] {addr} connected')
+    conn.send("OK--!--Welcome To The Server".encode(FORMAT))
+    active_addr.append(addr[0])
+    new_conn = addr[0] in client_addr
 
-# Lists for Clients and their Nicknames
-clients = []
-nicknames = []
+    if (new_conn != True):
+        client_addr.append(addr[0])
 
-# Sending message to all connected clients
-def broadcast(message):
-    for client in clients:
-        client.send(message)
+    while True: 
+        data = conn.recv(BUFFER_SIZE).decode(FORMAT)
+        data = data.split(" ")
+        cmd = data[0]
 
-# Handling messages from clients
-def handle(client):
-    while listener.is_alive():
-        try:
-            # Broadcasting Messages
-            message = client.recv(1024)
-            broadcast(message)
-        except:
-            # Removing and Closing Clients
-            index = clients.index(client)
-            clients.remove(client)
-            client.close()
-            nickname = nicknames[index]
-            broadcast(f'{nickname} has left the chat!')
-            nicknames.remove(nickname)
+        if cmd == 'Publish':
+            lname = data[1]
+            fname = data[2]
+        
+            send_data = "OK--!--Publish Successfully"
+            if fname in client_file:
+                if addr[0] in client_file[fname]: 
+                    send_data = "OK--!--File is already published"
+                else :
+                    client_file[fname].append(addr[0])
+            else :
+                client_file[fname] = []
+                client_file[fname].append(addr[0])
+                client_lname.append(lname)
+
+            print(f"{addr}: USING PUBLISH")
+            print(client_file)          
+            conn.send(send_data.encode(FORMAT))
+        
+        elif cmd == 'Fetch':
+            file = data[1]
+            if (file in client_file):
+                peer_ip = client_file.get(file)[0]
+                send_data = "FETCH--!--"
+                send_data += f"{peer_ip}:54321"
+                send_data += f":{client_lname[0]}"
+                send_data += f":{file}"
+
+            print(f"{addr}: USING FETCH")
+            conn.send(send_data.encode(FORMAT)) 
+
+        elif cmd == 'Disconnect':
+            send_data = "DISCONNECT--!--Goodbye"
+            conn.send(send_data.encode(FORMAT))
             break
+        else :
+            send_data = f"OK--!--Wrong command from {addr}"
+            conn.send(send_data.encode('utf-8'))
+    
+    active_addr.remove(addr[0])
+    print(f"[DISCONNECTED] {addr} disconnected")
+def main():
+    # Print IP address to terminal
+    print(f'Host is on: {HOST_IP}')
+    print("SERVER IS STARTING")
+    # Initialize server
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind(SERVER_ADDR)
+    server_socket.settimeout(1)
+    server_socket.listen()
+    print("SERVER IS LISTENING")
 
-# Receiving/ Listening function
-def receive():
-    while listener.is_alive():
-        # Accepting Connection
+    while True: 
         try:
-            client, address = server.accept()
-            print(f'Connected with {address}')
+            conn, addr = server_socket.accept()
+            client_command = threading.Thread(target=handle_client, args=(conn, addr))
+            client_command.start()
 
-            # Request And Store Client Information
-            client.send('NICK'.encode('utf-8'))
-            nickname = client.recv(1024).decode('utf-8')
-            nicknames.append(nickname)
-            clients.append(client)
-
-            # Print and Broadcast Nickname
-            print(f'Nickname is {nickname}')
-            broadcast(f'{nickname} joined!'.encode('utf-8'))
-
-            # Start Handling Thread for Client
-            thread = threading.Thread(target=handle, args=(client,))
-            thread.start()
-            threadList.append(thread)
-        except:
-            #Timeout, do again until press esc
+            handle_server = threading.Thread(target=server_command)
+            handle_server.start()
+        except :
             pass
 
-# This is used to listen for server commands: discover & ping
-def server_console():
-    while listener.is_alive():
-        command = input()
-
-# This is used to track if the server is pressed ESC to stop or not
-def on_release(key):
-    if key == keyboard.Key.esc:
-        # Stop listener
-        return False
-
-threadList = []
-
-# Collect events until released
-with keyboard.Listener(on_release=on_release)as listener:
-    thread = threading.Thread(target=receive)
-    thread.start()
-    threadList.append(thread)
-    
-    thread = threading.Thread(target=server_console)
-    thread.start()
-    threadList.append(thread)
-
-    for thread in threadList:
-        thread.join()
-        threadList.remove(thread)
-    
-    listener.join()
+if __name__ == "__main__":
+    main()

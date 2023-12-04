@@ -1,8 +1,6 @@
-import threading
 import socket
-import os
+import threading
 
-# This is used to get the IP of the host
 def get_local_ip():
     try:
         # Create a socket object and connect to an external server
@@ -13,75 +11,128 @@ def get_local_ip():
         return local_ip
     except socket.error:
         return "Unable to determine local IP"
+    
+# CONSTANTS
+SERVER_IP = input("Enter server IP: ")
+PORT = 55555
+FILE_SERVING_PORT = 54321
+SERVER_ADDR = (SERVER_IP, PORT)
+FORMAT = "utf-8"
+NAME = input("Enter your name: ")
+nickname = get_local_ip() + " " + str(PORT)  
 
-ip = input('Enter your server IP: ')
-port = 55555
-name = input('Enter your name: ')
-nickname = get_local_ip() + ' ' + str(port) + ": " + name
+def open_file_serving_socket():
+    """
+        Open a file serving TCP socket, which always runs to listen for file requests.
+    """
+    peer_file_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    peer_file_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        """
+            The try_except is for testing on the same device (same IP).
+            Client 1 will use port 54321. Client 2 has to use port another port - e.g. 64999.
+            The file server's port has to be a constant one, i.e. 65000.
+        """
+        peer_file_server.bind((get_local_ip(), FILE_SERVING_PORT))
+    except:
+        print("Something went wrong")
 
-# Connecting to the Server
-client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect((ip, port))
-
-# Listening to Server and Sending Nickname
-def receive():
+    peer_file_server.listen()
+    print(f"The file serving socket is {peer_file_server.getsockname()}")
     while True:
-        try:
-            # Receive Message from Server
-            # If 'NICK' Send Nickname
-            message = client.recv(1024).decode('utf-8')
-            if message == 'NICK':
-                client.send(nickname.encode('utf-8'))
-            else:
-                print(message)
-        except:
-            # Close Connection when Error
-            print('An error occured!')
-            client.close()
+        """
+        Accepting connection from client.
+        """
+        peer_client, peer_client_socket = peer_file_server.accept()
+        print(f'Prepare to serve {peer_client_socket}...')
+        file_name = peer_client.recv(1024).decode(FORMAT)
+        path = f"client_file/{file_name}"
+        with open(path) as f:
+            text = f.read(1024)
+            while text:
+                peer_client.send(text.encode(FORMAT))
+                text = f.read(1024)
+        break
+
+def handle_server():
+    # CONNECT TO SERVER
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(SERVER_ADDR)
+
+    while True:
+        data = client_socket.recv(1024).decode(FORMAT)
+        cmd, msg = data.split('--!--')
+
+        if cmd == 'OK':
+            print(f'{msg}')
+        elif cmd == 'DISCONNECT':
+            print(f'{msg}')
             break
+        elif cmd == 'FETCH':
+            print(f'{msg}')
+            new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_ip = msg.split(":")[0]
+            client_port = msg.split(":")[1]
+            fname = msg.split(":")[2] 
+            file = msg.split(":")[3]  
+            new_socket.connect((client_ip, int(client_port)))
+            new_socket.send(fname.encode(FORMAT)) 
+            f = open("downloads/" + file, "wb")
+            while True:
+                msg_data = new_socket.recv(1024)
+                if msg_data:
+                    f.write(msg_data)
+                if not msg_data:
+                    break
+            f.close()
+            new_socket.close()        
 
-def publish_file(local_filename, remote_filename):
-    with open(local_filename, 'rb') as file:
-        file_data = file.read()
+        print("> ", end="")
+        data = input()
+        cmd_list = data.split(" ")
+        cmd = cmd_list[0]
 
-    message = f'PUBLISH {remote_filename}\n{file_data}'
-    client.sendall(message.encode('utf-8'))
+        if cmd == 'Publish' and len(cmd_list) == 3:
+            path = f"client_file/{cmd_list[1]}"
+            try: 
+                with open(path) as f:
+                    text = f.read()
+                if (len(cmd_list[2].split(".")) == 1):
+                    file_extent = cmd_list[1].split(".")[1]
+                    data += f".{file_extent}"
+                client_socket.send(data.encode(FORMAT))
+            except: 
+                print("Error")
+                data = "Wrong command"
+                client_socket.send(data.encode(FORMAT))
 
-def fetch_file(remote_filename):
-    message = f'FETCH {remote_filename}'
-    client.sendall(message.encode('utf-8'))
+        elif cmd == 'Fetch' and len(cmd_list) == 2:
+            client_socket.send(data.encode(FORMAT))
 
-    # Receive file data from server
-    file_data = b''
-    while True:
-        chunk = client.recv(1024)
-        if not chunk:
-            break
-        file_data += chunk
+        elif cmd == 'Disconnect':
+            client_socket.send(data.encode(FORMAT))
 
-    # Write file data to local file
-    with open(remote_filename, 'wb') as file:
-        file.write(file_data)
+        else :
+            cmd = "Wrong command"
+            client_socket.send(data.encode(FORMAT))
+            
+    print("Disconnecting from server")
+    client_socket.close()
 
-# Sending Message to Server
-def write():
-    while True:
-        message = f'{nickname}: {input("")}'
-        print(message)
-        command = message.split(":")[-1]
-        if command.startswith(' publish'):
-            local_filename= command.split(' ')[2]
-            remote_filename= command.split(' ')[3]
-            publish_file(local_filename, remote_filename)
-        elif command.startswith(' fetch'):
-            remote_filename = command.split(' ', 2)[1]
-            fetch_file(remote_filename)
-        else:
-            print(f'Invalid command: {command}')
+def main():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((get_local_ip(), 54321))
+    s.listen(5)
 
+    try:
+        t = threading.Thread(target=handle_server, args=())
+        t.start()
 
-receiver_thread = threading.Thread(target=receive)
-receiver_thread.start()
+        file_server_thread = threading.Thread(target=open_file_serving_socket)
+        file_server_thread.start()
+            
+    except:
+        print("Shutting down")
 
-sender_thread = threading.Thread(target=write)
-sender_thread.start()
+if __name__ == "__main__":
+    main()
