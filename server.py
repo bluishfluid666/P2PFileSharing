@@ -53,7 +53,7 @@ class Server:
 
                 conn.send("DONE".encode('utf-8'))
 
-                data = conn.recv(204800).decode("utf-8")
+                data = conn.recv(102400).decode("utf-8")
                 data = data.split("@")
                 cmd = data[0]
 
@@ -96,7 +96,7 @@ class Server:
     def handle_client(self, conn, addr):
         self.log.append(f'[NEW CONNECTION] {addr} connected')
         conn.send("BEGIN--!--Welcome To The Server".encode("utf-8"))
-        aut_addr = conn.recv(204800).decode("utf-8")
+        aut_addr = conn.recv(102400).decode("utf-8")
 
         self.active_addr.append(aut_addr)
         new_conn = aut_addr in self.client_addr
@@ -105,7 +105,7 @@ class Server:
             self.client_addr.append(aut_addr)
 
         while True: 
-            data = conn.recv(204800).decode("utf-8")
+            data = conn.recv(102400).decode("utf-8")
             data = data.split(" ")
             cmd = data[0]
 

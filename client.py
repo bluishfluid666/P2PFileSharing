@@ -435,6 +435,15 @@ class HomeTab(ttk.Frame):
         )
         self.refresh_button.pack()
 
+        self.disconnect_button = ttk.Button(
+            self, text="Disconnect", command=self.disconnect
+        )
+        self.disconnect_button.pack()
+    
+    def disconnect(self):
+        msg = "Disconnect"
+        self.parent.client.set_message(msg)
+        print("Disconnected from server")
     def upload_file(self):
         # Implement logic to upload selected file from treeview
         # ... (show file selection dialog, call client upload method) ...
