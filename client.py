@@ -89,6 +89,32 @@ class Client:
         print(f"Client: {self.local_host}: {self.local_port}")
         print(f"Server: {self.server_host}: {self.server_port}")
 
+    def send_file_client(self, peer_client, peer_client_socket):
+        print(f'Prepare to serve {peer_client_socket}...')
+        file_name = peer_client.recv(FILE_SEGMENT).decode(FORMAT)
+        path = f"{self.get_upload_dir()}/{file_name}"
+        print(path)
+        file_size = os.path.getsize(path)
+
+        peer_client.send(str(file_size).encode(FORMAT))
+        print(f"SENDING: {file_name}\nSIZE: {file_size}")
+        with open(path, "rb") as f:
+            c = 0
+            while c < file_size:
+                # Do stuff with byte.
+                text = f.read(FILE_SEGMENT)
+                # Running loop while c != file_size.
+                if not (text):
+                    break
+                peer_client.send(text)
+                c += len(text) 
+        status_file = peer_client.recv(FILE_SEGMENT).decode(FORMAT)
+
+        if status_file == "OK":
+            print("NICE")
+        else :
+            print("FAIL")
+
     def open_file_serving_socket(self):
         """
             Open a file serving TCP socket, which always runs to listen for file requests.
@@ -111,31 +137,9 @@ class Client:
             Accepting connection from client.
             """
             peer_client, peer_client_socket = self.peer_file_server.accept()
-
-            print(f'Prepare to serve {peer_client_socket}...')
-            file_name = peer_client.recv(FILE_SEGMENT).decode(FORMAT)
-            path = f"{self.get_upload_dir()}/{file_name}"
-            print(path)
-            file_size = os.path.getsize(path)
-
-            peer_client.send(str(file_size).encode(FORMAT))
-            print(f"SENDING: {file_name}\nSIZE: {file_size}")
-            with open(path, "rb") as f:
-                c = 0
-                while c < file_size:
-                    # Do stuff with byte.
-                    text = f.read(FILE_SEGMENT)
-                    # Running loop while c != file_size.
-                    if not (text):
-                        break
-                    peer_client.send(text)
-                    c += len(text) 
-            status_file = peer_client.recv(FILE_SEGMENT).decode(FORMAT)
-
-            if status_file == "OK":
-                print("NICE")
-            else :
-                print("FAIL")
+            s_file_client = threading.Thread(target=self.send_file_client, args=(peer_client, peer_client_socket))
+            s_file_client.start()
+            
             
             time.sleep(2)
 
@@ -219,6 +223,7 @@ class Client:
                 self.set_message(" ")
                 
         self.log.append("Disconnecting from server")
+        self.conn_flag = False
         self.client_socket.close()
 
     def get_files(self):
