@@ -115,6 +115,8 @@ class Client:
         else :
             print("FAIL")
 
+        time.sleep(2)
+
     def open_file_serving_socket(self):
         """
             Open a file serving TCP socket, which always runs to listen for file requests.
@@ -136,12 +138,12 @@ class Client:
             """
             Accepting connection from client.
             """
-            peer_client, peer_client_socket = self.peer_file_server.accept()
-            s_file_client = threading.Thread(target=self.send_file_client, args=(peer_client, peer_client_socket))
-            s_file_client.start()
-            
-            
-            time.sleep(2)
+            try:
+                peer_client, peer_client_socket = self.peer_file_server.accept()
+                s_file_client = threading.Thread(target=self.send_file_client, args=(peer_client, peer_client_socket))
+                s_file_client.start()
+            except:
+                pass            
 
     def handle_server(self):
     # CONNECT TO SERVER
